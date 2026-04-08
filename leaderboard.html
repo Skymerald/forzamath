@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Math Race — Leaderboard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #0d0d14;
+    color: #e8e8f0;
+    min-height: 100vh;
+    padding: 2rem;
+  }
+
+  h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: 4px;
+    color: #f0c040;
+    margin-bottom: 0.5rem;
+  }
+
+  .status {
+    text-align: center;
+    font-size: 0.8rem;
+    color: #666;
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #555;
+    transition: background 0.3s;
+  }
+  .dot.live { background: #30c080; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  table {
+    width: 100%;
+    max-width: 700px;
+    margin: 0 auto;
+    border-collapse: collapse;
+  }
+
+  thead th {
+    font-size: 0.75rem;
+    letter-spacing: 2px;
+    color: #666;
+    text-align: left;
+    padding: 8px 16px;
+    border-bottom: 1px solid #222;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid #1a1a26;
+    transition: background 0.3s;
+  }
+  tbody tr:hover { background: #13131c; }
+  tbody tr.highlight { animation: flash 0.6s ease; }
+  @keyframes flash { 0%,100%{background:transparent} 50%{background:#2a2a10} }
+
+  td { padding: 12px 16px; font-size: 0.95rem; }
+
+  .rank { font-weight: 700; color: #888; width: 40px; }
+  .rank.gold   { color: #f0c040; }
+  .rank.silver { color: #c0c0c0; }
+  .rank.bronze { color: #cd7f32; }
+
+  .name { font-weight: 500; }
+
+  .time {
+    font-family: 'Courier New', monospace;
+    font-size: 1rem;
+    color: #e8e8f0;
+    text-align: right;
+  }
+
+  .penalty {
+    font-size: 0.8rem;
+    color: #e03030;
+    text-align: right;
+  }
+  .penalty.none { color: #444; }
+
+  .empty {
+    text-align: center;
+    color: #444;
+    padding: 3rem;
+    font-size: 0.9rem;
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+
+<h1>MATH RACE</h1>
+<div class="status">
+  <div class="dot" id="dot"></div>
+  <span id="statusLabel">Connecting...</span>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Driver</th>
+      <th style="text-align:right">Time</th>
+      <th style="text-align:right">Penalties</th>
+    </tr>
+  </thead>
+  <tbody id="leaderboard">
+    <tr><td colspan="4" class="empty">Waiting for results...</td></tr>
+  </tbody>
+</table>
+
+<script>
+  const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+  const WS_URL = `${protocol}://${window.location.host}`;
+  let ws;
+
+  function connect() {
+    ws = new WebSocket(WS_URL);
+
+    ws.onopen = () => {
+      document.getElementById('dot').className = 'dot live';
+      document.getElementById('statusLabel').textContent = 'Live';
+    };
+
+    ws.onclose = () => {
+      document.getElementById('dot').className = 'dot';
+      document.getElementById('statusLabel').textContent = 'Disconnected — retrying...';
+      setTimeout(connect, 3000);
+    };
+
+    ws.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'ranking_update') renderLeaderboard(msg.data);
+      } catch {}
+    };
+  }
+
+  function formatTime(s) {
+    const m = Math.floor(s / 60);
+    const sec = (s % 60).toFixed(3).padStart(6, '0');
+    return `${m}:${sec}`;
+  }
+
+  function rankClass(i) {
+    return i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+  }
+
+  function renderLeaderboard(data) {
+    const tbody = document.getElementById('leaderboard');
+
+    if (!data || data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="empty">Waiting for results...</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.map((entry, i) => {
+      const pen = entry.penaltyTotal > 0
+        ? `+${entry.penaltyTotal.toFixed(1)}s`
+        : '—';
+      const penClass = entry.penaltyTotal > 0 ? 'penalty' : 'penalty none';
+
+      return `<tr id="row-${entry.playerName.replace(/\W/g,'_')}">
+        <td class="rank ${rankClass(i)}">${i + 1}</td>
+        <td class="name">${entry.playerName}</td>
+        <td class="time">${formatTime(entry.finalTime)}</td>
+        <td class="${penClass}">${pen}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Also fetch on load in case we missed earlier results
+  fetch('/api/ranking')
+    .then(r => r.json())
+    .then(data => renderLeaderboard(data))
+    .catch(() => {});
+
+  connect();
+</script>
+</body>
+</html>
