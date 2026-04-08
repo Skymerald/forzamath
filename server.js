@@ -58,6 +58,11 @@ app.post('/api/result', (req, res) => {
 // ── GET /api/ranking — fetch current leaderboard ─────────────────────
 app.get('/api/ranking', (req, res) => res.json(results));
 
+// ── GET /api/ping — Simple wake-up call ──────────────────────────────
+app.get('/api/ping', (req, res) => {
+    res.json({ status: 'awake', timestamp: new Date() });
+});
+
 // ── HTTP + WebSocket server ───────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
 const server = app.listen(PORT, () => {
