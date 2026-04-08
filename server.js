@@ -28,31 +28,36 @@ const results = [];
 
 // ── POST /api/result — Unity sends here on race finish ───────────────
 app.post('/api/result', (req, res) => {
+    // Log incoming data so you can see it in the Render terminal
+    console.log("Incoming Result:", req.body);
+
     const { playerName, finalTime, penaltyTotal } = req.body;
 
-    if (!playerName || finalTime == null) {
+    // Check for undefined or null explicitly
+    if (!playerName || finalTime === undefined || finalTime === null) {
+        console.error("[400] Validation Failed: Missing playerName or finalTime");
         return res.status(400).json({ error: 'Missing playerName or finalTime' });
     }
 
-    // Update existing entry or add new one
-    const existing = results.findIndex(r => r.playerName === playerName);
-    const entry = { playerName, finalTime, penaltyTotal: penaltyTotal || 0 };
+    const entry = { 
+        playerName, 
+        finalTime: parseFloat(finalTime), 
+        penaltyTotal: parseFloat(penaltyTotal || 0) 
+    };
 
+    const existing = results.findIndex(r => r.playerName === playerName);
     if (existing >= 0) results[existing] = entry;
     else               results.push(entry);
 
-    // Sort by fastest time
     results.sort((a, b) => a.finalTime - b.finalTime);
 
-    console.log(`[Result] ${playerName} — ${formatTime(finalTime)} (penalties: ${penaltyTotal}s)`);
-
-    // Broadcast updated leaderboard to all WebSocket clients
+    // Broadcast to WebSockets
     const payload = JSON.stringify({ type: 'ranking_update', data: results });
     wss.clients.forEach(client => {
         if (client.readyState === 1) client.send(payload);
     });
 
-    res.json({ ok: true, rank: results.findIndex(r => r.playerName === playerName) + 1 });
+    res.json({ ok: true });
 });
 
 // ── GET /api/ranking — fetch current leaderboard ─────────────────────
