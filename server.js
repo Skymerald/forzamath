@@ -67,6 +67,10 @@ app.get('/api/ranking', (req, res) => res.json(results));
 app.get('/api/ping', (req, res) => {
     res.json({ status: 'awake', timestamp: new Date() });
 });
+// Add this above your app.listen call
+app.get('/play', (req, res) => {
+    res.sendFile(path.join(__dirname, 'game.html'));
+});
 
 // ── HTTP + WebSocket server ───────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
