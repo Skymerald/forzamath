@@ -71,6 +71,9 @@ app.get('/api/ping', (req, res) => {
 app.get('/play', (req, res) => {
     res.sendFile(path.join(__dirname, 'game.html'));
 });
+app.get('/leaderboard', (req, res) => {
+    res.sendFile(path.join(__dirname, 'leaderboard.html'));
+});
 
 // ── HTTP + WebSocket server ───────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
